@@ -1,0 +1,23 @@
+name: diffusion-lagr
+channels:
+  - nvidia
+  - pytorch
+  - defaults
+dependencies:
+  - python=3.7.16
+  - pytorch=1.13.1
+  - torchvision=0.14.1
+  - torchaudio=0.13.1
+  - pytorch-cuda=11.6
+  - numpy
+  - scipy
+  - matplotlib
+  - scikit-learn
+  - h5py
+  - pyyaml
+  - tqdm
+  - pip
+  - pip:
+      - torchinfo
+      - hydra-core
+      - einops
