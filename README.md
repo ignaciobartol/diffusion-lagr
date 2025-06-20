@@ -104,7 +104,7 @@ The log files and model checkpoints will be saved to a logging directory specifi
 
 ### Demo
 
-To assist with testing the software installation and understanding the hyperparameters mentioned above, we have provided two smaller datasets: `datasets/Lag_u1c_diffusion-demo.h5` and `datasets/Lag_u3c_diffusion-demo.h5`. The `train` dataset within these files has shapes of (768, 2000, 1) and (256, 2000, 3), respectively.
+To assist with testing the software installation and understanding the hyperparameters mentioned above, we have provided two smaller datasets: `datasets/Lagr_u1c_diffusion-demo.h5` and `datasets/Lagr_u3c_diffusion-demo.h5`. The `train` dataset within these files has shapes of (768, 2000, 1) and (256, 2000, 3), respectively.
 
 To run the demo, use the same flags as for the `DM-1c` and `DM-3c` models above, ensuring that you modify the `--dataset_path` flag to the appropriate demo dataset.
 
