@@ -42,7 +42,9 @@ def load_data(
         dataset_path, dataset_name, class_cond, start_idx, chunk_size,
     )
 
-    shuffle = True if deterministic else False
+    # When deterministic=True we want to disable shuffling so that
+    # each worker always processes the same subset in the same order.
+    shuffle = not deterministic
     loader = DataLoader(
         dataset, batch_size=batch_size, shuffle=shuffle, num_workers=1, drop_last=True
     )
