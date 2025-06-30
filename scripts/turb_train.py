@@ -20,7 +20,7 @@ def main():
     args = create_argparser().parse_args()
 
     dist_util.setup_dist()
-    logger.configure()
+    logger.configure(dir=args.log_dir)
 
     logger.log("creating model and diffusion...")
     model, diffusion = create_model_and_diffusion(
@@ -73,6 +73,7 @@ def create_argparser():
         resume_checkpoint="",
         use_fp16=False,
         fp16_scale_growth=1e-3,
+        log_dir="checkpoints",
     )
     defaults.update(model_and_diffusion_defaults())
     parser = argparse.ArgumentParser()
