@@ -116,3 +116,4 @@ datasets/**
 *.sbatch
 checkpoints/
 logs/
+results/

@@ -9,3 +9,11 @@ with h5py.File('datasets/Lagr_u3c_diffusion-demo.h5', 'r') as h5f:
 
 velocities = (u3c+1)*(rx1-rx0)/2 + rx0
 # %%
+dir(h5f)
+# %%
+h5f = h5py.File('datasets/Lagr_u3c_diffusion-demo.h5', 'r')
+
+# %%
+h5f.keys()
+# %%
+h5f.get('train').shape
