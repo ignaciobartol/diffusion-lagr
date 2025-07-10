@@ -126,7 +126,7 @@ with h5py.File(h5_file_path, 'w') as h5f:
     h5f.create_dataset('max', data=np.array([df["Track: Position[X] (m)"].max(),
                                              df["Track: Position[Y] (m)"].max(),
                                              df["Track: Position[Z] (m)"].max()]))
-    h5f.create_dataset('train', data=data_ar[0:512, 0:2001, -3:])
+    h5f.create_dataset('train', data=data_ar[0:512, 0:2000, -3:])
 # %%
 # Check if the file was created successfully
 if os.path.isfile(h5_file_path):
@@ -143,5 +143,5 @@ with h5py.File(h5_file_path, 'r') as h5f:
     print(data_ar[0:5, 0, -3:])
     print('------')
     print(train_data[0:5, 0, :])
-    assert train_data.shape == data_ar[0:512, 0:2001, -3:].shape, "Shapes do not match!"
+    assert train_data.shape == data_ar[0:512, 0:2000, -3:].shape, "Shapes do not match!"
 # %%

@@ -451,6 +451,15 @@ def configure(dir=None, format_strs=None, comm=None, log_suffix=""):
             datetime.datetime.now().strftime("openai-%Y-%m-%d-%H-%M-%S-%f"),
         )
     assert isinstance(dir, str)
+    folder_n = 0
+    while os.path.exists(dir):
+        if os.path.isdir(dir):
+            folder_n += 1
+            dir = "%s-%i" % (dir, folder_n)
+        else:
+            raise ValueError(
+                "Log directory %s already exists and is not a directory." % dir
+            )
     dir = os.path.expanduser(dir)
     os.makedirs(os.path.expanduser(dir), exist_ok=True)
 

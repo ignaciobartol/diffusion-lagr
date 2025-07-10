@@ -114,6 +114,9 @@ datasets/**
 
 # No SLURM files
 *.sbatch
-checkpoints/
+checkpoints*/
 logs/
 results/
+
+# No reading dataset files
+Read_Dataset.py
