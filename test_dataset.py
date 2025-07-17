@@ -4,7 +4,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import os
+from mpl_toolkits.mplot3d import Axes3D
 
+#%%
 with h5py.File('datasets/Lagr_u3c_diffusion-demo.h5', 'r') as h5f:
     rx0 = np.array(h5f.get('min'))
     rx1 = np.array(h5f.get('max'))
@@ -54,6 +56,7 @@ plt.show()
 
 # %%
 data_ar = np.load('/storage/project/r-sdewji3-0/ibartol3/FastDep-CFPD/dataset/bb-part-0.42.npy')
+data_ar = np.moveaxis(data_ar, 1, 0)  # Move the second axis to the first position
 print("Shape of the data array:", data_ar.shape)
 
 # %%
@@ -119,6 +122,9 @@ print(df['Z (m)'][0], df["Track: Position[Z] (m)"][0])
 
 # Create a h5 file with the data
 h5_file_path = "/storage/project/r-sdewji3-0/ibartol3/diffusion-lagr/datasets/bb-part-0.42.h5"
+if os.path.isfile(h5_file_path):
+    assert os.path.isfile(h5_file_path), "HDF5 file already exists, please remove it before running this script."
+
 with h5py.File(h5_file_path, 'w') as h5f:
     h5f.create_dataset('min', data=np.array([df["Track: Position[X] (m)"].min(),
                                              df["Track: Position[Y] (m)"].min(),
@@ -126,7 +132,7 @@ with h5py.File(h5_file_path, 'w') as h5f:
     h5f.create_dataset('max', data=np.array([df["Track: Position[X] (m)"].max(),
                                              df["Track: Position[Y] (m)"].max(),
                                              df["Track: Position[Z] (m)"].max()]))
-    h5f.create_dataset('train', data=data_ar[0:512, 0:2000, -3:])
+    h5f.create_dataset('train', data=data_ar[0:512, 0:1024, -3:])
 # %%
 # Check if the file was created successfully
 if os.path.isfile(h5_file_path):
@@ -138,10 +144,112 @@ else:
 with h5py.File(h5_file_path, 'r') as h5f:
     train_data = np.array(h5f.get('train'))
     print("Shape of the train dataset in the HDF5 file:", train_data.shape)
-    print("Shape of the original data array:", data_ar[0:512, 0:2001, -3:].shape)
+    print("Shape of the original data array:", data_ar[0:512, 0:1500, -3:].shape)
     print(np.array(h5f.get('min')), np.array(h5f.get('max')))
     print(data_ar[0:5, 0, -3:])
     print('------')
     print(train_data[0:5, 0, :])
-    assert train_data.shape == data_ar[0:512, 0:2000, -3:].shape, "Shapes do not match!"
+    assert train_data.shape == data_ar[0:512, 0:1024, -3:].shape, "Shapes do not match!"
+# %%
+particles = [0, 51]  # Indices of particles to plot
+xy = [0, 1]         # Coordinates to plot (x=0, y=1)
+n_particles = len(particles)
+
+fig, axs = plt.subplots(1, n_particles, figsize=(6 * n_particles, 5))
+if n_particles == 1:
+    axs = [axs]
+for i, idx in enumerate(particles):
+    ax = axs[i]
+    for j in range(50):
+        ax.plot(data_ar[idx+j, :, -1], data_ar[idx+j, :, -2],
+                label='Ground Truth', linestyle='--')
+    ax.set_title(f'Particle {idx} Trajectory')
+    ax.set_xlabel(f'Coord {xy[0]}')
+    ax.set_ylabel(f'Coord {xy[1]}')
+    # ax.legend()
+    ax.axis('equal')
+
+plt.tight_layout()
+# plt.savefig('trajectories_plot.png')
+plt.show()
+# %%
+
+data_df = np.load('/storage/home/hcoda1/7/ibartol3/r-sdewji3-0/diffusion-lagr/results-1/samples_128x1024x3.npz')['arr_0']
+# data_ar = np.moveaxis(data_ar, 1, 0)  # Move the second axis to the first position
+print("Shape of the data array:", data_df.shape)
+
+#%%
+fig, axs = plt.subplots(1, n_particles, figsize=(6 * n_particles, 5))
+particles = [0]  # Indices of particles to plot
+xy = [-2, -3]  # Coordinates to plot (x=0, y=1)
+# n_particles = len(particles)
+if n_particles == 1:
+    axs = [axs]
+for i, idx in enumerate(particles):
+    ax = axs[i]
+    for j in range(512):
+        ax.plot(data_ar[idx+j, :, xy[0]], data_ar[idx+j, :, xy[1]],
+                label='Ground Truth', linestyle='-', color='red',
+                alpha=0.2)
+    for j in range(128):
+        ax.plot(data_df[idx+j, :, xy[0]], data_df[idx+j, :, xy[1]],
+                label='Diffusion Model', linestyle='--', color='blue',
+                alpha=0.4)
+
+    handles = [
+        plt.Line2D([0], [0], color='blue', linestyle='--', label='Diffusion Model'),
+        plt.Line2D([0], [0], color='red', linestyle='-', label='Ground Truth')
+    ]
+    ax.legend(handles=handles)
+    ax.set_title(f'Particle {idx} Trajectory')
+    ax.set_xlabel(f'Coord {xy[0]}')
+    ax.set_ylabel(f'Coord {xy[1]}')
+    # ax.legend()
+    ax.axis('equal')
+
+plt.tight_layout()
+# plt.savefig('trajectories_plot.png')
+plt.show()
+# %%
+particles = [0]
+xy_pairs = [(-3, -2), (-3, -1), (-2, -1)]  # (Z,Y), (Z,X), (Y,X)
+labels = [('X', 'Y'), ('X', 'Z'), ('Y', 'Z')]
+n_proj = len(xy_pairs)
+n_sample = 128
+n_train = 512
+
+fig = plt.figure(figsize=(20, 5))
+for i, (xy, (xlabel, ylabel)) in enumerate(zip(xy_pairs, labels)):
+    ax = fig.add_subplot(1, n_proj + 1, i + 1)
+    for j in range(n_train):
+        ax.plot(data_ar[j, :, xy[0]], data_ar[j, :, xy[1]], color='red', alpha=0.2)
+    for j in range(n_sample):
+        ax.plot(data_df[j, :, xy[0]], data_df[j, :, xy[1]], color='blue', alpha=0.4, linestyle='--')
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    handles = [
+        plt.Line2D([0], [0], color='blue', linestyle='--', label='Diffusion Model'),
+        plt.Line2D([0], [0], color='red', linestyle='-', label='Ground Truth')
+    ]
+    ax.legend(handles=handles)
+    ax.set_title(f'{xlabel}-{ylabel} Projection')
+    ax.axis('equal')
+
+# 3D plot
+ax3d = fig.add_subplot(1, n_proj + 1, n_proj + 1, projection='3d')
+for j in range(n_train):
+    ax3d.plot(data_ar[j, :, -3], data_ar[j, :, -2], data_ar[j, :, -1], color='red', alpha=0.2)
+for j in range(n_sample):
+    ax3d.plot(data_df[j, :, -3], data_df[j, :, -2], data_df[j, :, -1], color='blue', alpha=0.4, linestyle='--')
+ax3d.set_xlabel('Z')
+ax3d.set_ylabel('Y')
+ax3d.set_zlabel('X')
+handles = [
+        plt.Line2D([0], [0], color='blue', linestyle='--', label='Diffusion Model'),
+        plt.Line2D([0], [0], color='red', linestyle='-', label='Ground Truth')
+    ]
+ax3d.legend(handles=handles)
+ax3d.set_title('3D Trajectory')
+plt.tight_layout()
+plt.show()
 # %%

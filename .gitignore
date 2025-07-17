@@ -116,7 +116,7 @@ datasets/**
 *.sbatch
 checkpoints*/
 logs/
-results/
+results*/
 
 # No reading dataset files
 Read_Dataset.py

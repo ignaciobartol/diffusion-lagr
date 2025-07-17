@@ -1,0 +1,1 @@
+# Fastdep is the legacy code to generate datasets for the diffusion-lagr project.

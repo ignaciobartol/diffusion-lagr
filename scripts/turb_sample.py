@@ -24,19 +24,24 @@ def main():
     args = create_argparser().parse_args()
 
     dist_util.setup_dist()
-    logger.configure()
+    logger.configure(dir=args.results_dir)
 
     logger.log("creating model and diffusion...")
     model, diffusion = create_model_and_diffusion(
         **args_to_dict(args, model_and_diffusion_defaults().keys())
     )
+    logger.log("model and diffusion created")
     model.load_state_dict(
         dist_util.load_state_dict(args.model_path, map_location="cpu")
     )
+    logger.log("model loaded from", args.model_path)
+    logger.log("model parameters:", sum(p.numel() for p in model.parameters()))
+    logger.log("model on device:", dist_util.dev())
     model.to(dist_util.dev())
     if args.use_fp16:
         model.convert_to_fp16()
     model.eval()
+    logger.log("model converted to fp16" if args.use_fp16 else "model in fp32")
 
     logger.log("sampling...")
     all_images = []
@@ -113,6 +118,7 @@ def create_argparser():
         batch_size=16,
         use_ddim=False,
         model_path="",
+        results_dir="",
     )
     defaults.update(model_and_diffusion_defaults())
     parser = argparse.ArgumentParser()
