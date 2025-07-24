@@ -18,6 +18,7 @@ def plot_xy_tracks(
     label: str | None = None,
     alpha: float = 0.4,
     color: str | None = None,
+    linestyle="-"
 ) -> None:
     """Plot 2D projections of many trajectories on a single axes."""
     ax = ax or plt.gca()
@@ -28,6 +29,7 @@ def plot_xy_tracks(
             label=label if idx == particle_idx[0] else None,
             alpha=alpha,
             color=color,
+            linestyle=linestyle
         )
     ax.axis("equal")
     ax.set_xlabel(f"coord {xy[0]}")
@@ -42,6 +44,7 @@ def plot_3d_tracks(
     label: str | None = None,
     alpha: float = 0.4,
     color: str | None = None,
+    linestyle="-"
 ) -> None:
     ax = ax or plt.figure().add_subplot(111, projection="3d")
     for idx in particle_idx:
@@ -52,6 +55,7 @@ def plot_3d_tracks(
             label=label if idx == particle_idx[0] else None,
             alpha=alpha,
             color=color,
+            linestyle=linestyle
         )
     ax.set_xlabel("Z")
     ax.set_ylabel("Y")

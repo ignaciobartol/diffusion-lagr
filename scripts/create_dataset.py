@@ -51,22 +51,22 @@ xyz_min = np.asarray(df[["Track: Position[X] (m)",
 xyz_max = np.asarray(df[["Track: Position[X] (m)",
                          "Track: Position[Y] (m)",
                          "Track: Position[Z] (m)"]].max().values)
-log.info("xyz‑min %s", xyz_min)
-log.info("xyz‑max %s", xyz_max)
+log.info("xyz-min %s", xyz_min)
+log.info("xyz-max %s", xyz_max)
 
 # --------------------------------------------------------------------------- #
 #  2) Load NumPy and slice for training subset
 # --------------------------------------------------------------------------- #
 raw = load_npy(args.npy, moveaxis=(1, 0))  # (particles, timesteps, 3)
-train = raw[: args.train_particles, : args.train_timesteps, -3:]
-log.info("train subset %s", train.shape)
+train_npy = raw[: args.train_particles, : args.train_timesteps, -3:]
+log.info("train subset %s", train_npy.shape)
 
 # --------------------------------------------------------------------------- #
 #  3) Save to HDF5
 # --------------------------------------------------------------------------- #
 save_h5_dataset(
     out_path=args.out,
-    train=train,
+    train=train_npy,
     xyz_min=xyz_min,
     xyz_max=xyz_max,
     overwrite=args.overwrite,
