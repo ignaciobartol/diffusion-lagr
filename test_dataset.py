@@ -174,7 +174,7 @@ plt.tight_layout()
 plt.show()
 # %%
 
-data_df = np.load('/storage/home/hcoda1/7/ibartol3/r-sdewji3-0/diffusion-lagr/results-1/samples_128x1024x3.npz')['arr_0']
+data_df = np.load('/storage/home/hcoda1/7/ibartol3/r-sdewji3-0/diffusion-lagr/results/4/samples_256x1024x3.npz')['arr_0']
 # data_ar = np.moveaxis(data_ar, 1, 0)  # Move the second axis to the first position
 print("Shape of the data array:", data_df.shape)
 

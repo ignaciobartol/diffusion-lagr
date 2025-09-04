@@ -166,7 +166,7 @@ class STLToNumpyConverter:
         vtk_dtype = self._numpy_dtype_to_vtk(self.cfg.dtype)
         img.AllocateScalars(vtk_dtype, 1)
 
-        # IMPORTANT: fill input image with "inside" value
+        # TODO: VTK can leave uninitialized garbage in the image; we must fill it ourselves
         in_arr = numpy_support.vtk_to_numpy(img.GetPointData().GetScalars())
         in_arr[:] = self.cfg.fill_value
 
