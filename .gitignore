@@ -120,3 +120,4 @@ results*/
 
 # No reading dataset files
 Read_Dataset.py
+/scripts/add_noise_compare_tracks_cond.py
