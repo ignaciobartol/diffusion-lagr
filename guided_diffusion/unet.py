@@ -17,7 +17,7 @@ from .nn import (
     normalization,
     timestep_embedding,
 )
-
+from .geo_encoder import GeometryEncoder
 
 class AttentionPool2d(nn.Module):
     """
@@ -445,6 +445,8 @@ class UNetModel(nn.Module):
         use_scale_shift_norm=False,
         resblock_updown=False,
         use_new_attention_order=False,
+        geometry_cond=True,
+        geometry_input_size=64
     ):
         super().__init__()
 
@@ -467,6 +469,7 @@ class UNetModel(nn.Module):
         self.num_head_channels = num_head_channels
         self.num_heads_upsample = num_heads_upsample
 
+        self.geometry_cond = geometry_cond
         time_embed_dim = model_channels * 4
         self.time_embed = nn.Sequential(
             linear(model_channels, time_embed_dim),
@@ -476,6 +479,12 @@ class UNetModel(nn.Module):
 
         if self.num_classes is not None:
             self.label_emb = nn.Embedding(num_classes, time_embed_dim)
+
+        if self.geometry_cond:
+            self.geo_encoder = GeometryEncoder(
+                output_dim=time_embed_dim,
+                input_channels=1,
+            )
 
         ch = input_ch = int(channel_mult[0] * model_channels)
         self.input_blocks = nn.ModuleList(
@@ -631,13 +640,14 @@ class UNetModel(nn.Module):
         self.middle_block.apply(convert_module_to_f32)
         self.output_blocks.apply(convert_module_to_f32)
 
-    def forward(self, x, timesteps, y=None):
+    def forward(self, x, timesteps, geometry_grid=None, y=None):
         """
         Apply the model to an input batch.
 
         :param x: an [N x C x ...] Tensor of inputs.
         :param timesteps: a 1-D batch of timesteps.
         :param y: an [N] Tensor of labels, if class-conditional.
+        :param geometry_grid: an optional [B x 1 x D x H x W] Tensor of 3D voxel grids for geometry conditioning.
         :return: an [N x C x ...] Tensor of outputs.
         """
         assert (y is not None) == (
@@ -650,6 +660,11 @@ class UNetModel(nn.Module):
         if self.num_classes is not None:
             assert y.shape == (x.shape[0],)
             emb = emb + self.label_emb(y)
+
+        if self.geometry_cond and geometry_grid is not None:
+            # Encode geometry grid and add to timestep embedding
+            geo_emb = self.geo_encoder(geometry_grid)
+            emb = emb + geo_emb
 
         h = x.type(self.dtype)
         for module in self.input_blocks:
