@@ -117,6 +117,7 @@ datasets/**
 checkpoints*/
 logs/
 results*/
+debug_plots/
 
 # No reading dataset files
 Read_Dataset.py
