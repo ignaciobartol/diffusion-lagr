@@ -19,6 +19,7 @@ from guided_diffusion.script_util import (
     args_to_dict,
 )
 
+from guided_diffusion.geometry_util import geometry_guidance_fn
 
 def main():
     args = create_argparser().parse_args()
@@ -43,6 +44,35 @@ def main():
     model.eval()
     logger.log("model converted to fp16" if args.use_fp16 else "model in fp32")
 
+    logger.log("loading geometries for guidance...")
+    # Load the .npz created by process_geometry.py
+    geo_data = np.load(args.geometry_path)
+    sdf_cpu = th.from_numpy(geo_data["sdf"]).unsqueeze(0).unsqueeze(0)
+    origin_cpu = th.from_numpy(geo_data["origin"])
+    spacing_cpu = th.from_numpy(geo_data["spacing"])
+
+    sdf_dev = sdf_cpu.to(dist_util.dev())
+    origin_dev = origin_cpu.to(dist_util.dev())
+    spacing_dev = spacing_cpu.to(dist_util.dev())
+
+    binary_grid = th.from_numpy(geo_data["binary"]).unsqueeze(0).unsqueeze(0).float()
+    binary_grid_dev = binary_grid.to(dist_util.dev())
+    logger.log("geometries loaded")
+
+    # Code to define cond_fn for geometry guidance closure
+    def cond_fn(x, t, y=None):
+        """
+        Wrapper that freezes the geometry arguments fr the diffusion loop.
+        """
+        return geometry_guidance_fn(
+            x_t=x,
+            t=t,
+            sdf_grid=sdf_dev,
+            origin=origin_dev,
+            spacing=spacing_dev,
+            guidance_scale=args.guidance_scale
+            )
+
     logger.log("sampling...")
     all_images = []
     all_labels = []
@@ -60,6 +90,8 @@ def main():
     th.manual_seed(seed)
     while len(all_images) * args.batch_size < args.num_samples:
         model_kwargs = {}
+        # Pass geometry to the model (Unet conditioning)
+        model_kwargs["geometry_grid"] = binary_grid_dev.repeat(args.batch_size, 1, 1, 1, 1)
         if args.class_cond:
             classes = th.randint(
                 low=0, high=NUM_CLASSES, size=(args.batch_size,), device=dist_util.dev()
@@ -75,6 +107,8 @@ def main():
             #noise=noise,
             clip_denoised=args.clip_denoised,
             model_kwargs=model_kwargs,
+            cond_fn=cond_fn,
+            device=dist_util.dev(),
         )
         sample = sample.clamp(-1, 1)
         #sample[:, -1] = sample[:, -1].clamp(-1, 1)
@@ -119,6 +153,9 @@ def create_argparser():
         use_ddim=False,
         model_path="",
         results_dir="",
+        log_dir="sample_logs",
+        geometry_path="",
+        guidance_scale=1.0,
     )
     defaults.update(model_and_diffusion_defaults())
     parser = argparse.ArgumentParser()

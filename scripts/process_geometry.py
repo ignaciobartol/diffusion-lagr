@@ -11,7 +11,7 @@ Example
 import argparse
 import numpy as np
 import json
-from scpiy.ndimage import distance_transform_edt
+from scipy.ndimage import distance_transform_edt
 from stl_to_numpy import STLToNumpyConverter, VoxelizationConfig
 
 class MetadataVoxelizer(STLToNumpyConverter):
