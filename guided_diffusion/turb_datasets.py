@@ -2,15 +2,17 @@ from mpi4py import MPI
 import h5py
 from torch.utils.data import DataLoader, Dataset
 import numpy as np
-
+import json
+import bisect
 
 def load_data(
     *,
     dataset_path,
-    dataset_name,
+    dataset_name = "",
     batch_size,
     class_cond=False,
     deterministic=False,
+    **kwargs #Catch all for legacy args
 ):
     """
     For a dataset, create a generator over (images, kwargs) pairs.
@@ -31,16 +33,37 @@ def load_data(
     rank = comm.Get_rank()
     size = comm.Get_size()
 
-    with h5py.File(dataset_path, 'r', driver='mpio', comm=MPI.COMM_SELF) as f:
-    # with h5py.File(dataset_path, 'r') as f:  # replace the above line with this line for serial h5py
-        len_dataset = f[dataset_name].len()
+    with open(dataset_path, 'r') as f:
+        manifest = json.load(f)
 
-    chunk_size = len_dataset // size
+    file_lengths = []
+    cumulative_lengths = [0]
+    total_len = 0
+
+    for entry in manifest:
+        h5_path = entry['h5_path']
+        d_name = entry.get('dataset_name', dataset_name)
+        with h5py.File(h5_path, 'r', driver='mpio', comm=MPI.COMM_SELF) as f:
+        # with h5py.File(dataset_path, 'r') as f:  # replace the above line with this line for serial h5py
+            length = f[d_name].len()
+        file_lengths.append(length)
+        total_len += length
+        cumulative_lengths.append(total_len)
+
+    # Determine the chunk of data this worker will process    
+    chunk_size = total_len // size
     start_idx  = rank * chunk_size
 
-    dataset = TurbDataset(
-        dataset_path, dataset_name, class_cond, start_idx, chunk_size,
+    dataset = MultiGeometryDataset(
+        manifest = manifest,
+        cumulative_lengths = cumulative_lengths,
+        start_idx = start_idx,
+        chunk_size = chunk_size,
+        class_cond = class_cond
     )
+    # dataset = TurbDataset(
+    #     dataset_path, dataset_name, class_cond, start_idx, chunk_size,
+    # )
 
     # When deterministic=True we want to disable shuffling so that
     # each worker always processes the same subset in the same order.
@@ -52,37 +75,100 @@ def load_data(
     while True:
         yield from loader
 
-
-class TurbDataset(Dataset):
+class MultiGeometryDataset(Dataset):
     def __init__(
         self,
-        dataset_path,
-        dataset_name,
-        class_cond,
+        manifest,
+        cumulative_lengths,
         start_idx,
         chunk_size,
+        class_cond=False
     ):
         super().__init__()
-        self.dataset_path = dataset_path
-        self.dataset_name = dataset_name
+        self.manifest = manifest
+        self.cumulative_lengths = cumulative_lengths
         self.class_cond = class_cond
         self.start_idx  = start_idx
         self.chunk_size = chunk_size
 
+        self.geo_cache = {}
+        print(f"Loading {len(manifest)} geometries into memory...")
+
+        for entry in manifest:
+            geo_path = entry["geo_path"]
+            if geo_path not in self.geo_cache:
+                try:
+                    data = np.load(geo_path)
+                    # Grid [D, H, W]
+                    grid = data["binary"].astype(np.float32)
+                    grid = np.expand_dims(grid, axis=0)  # [1, D, H, W]
+                    self.geo_cache[geo_path] = grid
+                except Exception as e:
+                    print(f"FAILED to load geometry from {geo_path}: ({e})")
+                    raise e
+                
     def __len__(self):
         return self.chunk_size
-
+    
     def __getitem__(self, idx):
-        idx += self.start_idx
+        global_idx = idx + self.start_idx
 
-        with h5py.File(self.dataset_path, 'r', driver='mpio', comm=MPI.COMM_SELF) as f:
-        # with h5py.File(self.dataset_path, 'r') as f:  # replace the above line with this line for serial h5py
-            data = f[self.dataset_name][idx].astype(np.float32)
-            data = np.moveaxis(data, -1, 0)
+        # Find which file this index belongs to
+        file_idx = bisect.bisect_right(self.cumulative_lengths, global_idx) - 1
 
+        # Local index within the file
+        file_offset = self.cumulative_lengths[file_idx]
+        local_sample_idx = global_idx - file_offset
+
+        # Retrieve metadata for this file
+        entry = self.manifest[file_idx]
+        h5_path = entry['h5_path']
+        d_name = entry.get('dataset_name', 'train')
+        geo_path = entry['geo_path']
+
+        with h5py.File(h5_path, 'r', driver='mpio', comm=MPI.COMM_SELF) as f:
+            data = f[d_name][local_sample_idx].astype(np.float32)
+            data = np.moveaxis(data, -1, 0)  # [C, D, H, W]
             out_dict = {}
+
             if self.class_cond:
                 raise NotImplementedError()
-                out_dict["y"] = f[self.dataset_name + '_y'][idx]
+                # out_dict["y"] = f[d_name + '_y'][local_sample_idx]
+        out_dict["geometry_grid"] = self.geo_cache[geo_path]
 
         return data, out_dict
+
+
+# class TurbDataset(Dataset):
+#     def __init__(
+#         self,
+#         dataset_path,
+#         dataset_name,
+#         class_cond,
+#         start_idx,
+#         chunk_size,
+#     ):
+#         super().__init__()
+#         self.dataset_path = dataset_path
+#         self.dataset_name = dataset_name
+#         self.class_cond = class_cond
+#         self.start_idx  = start_idx
+#         self.chunk_size = chunk_size
+
+#     def __len__(self):
+#         return self.chunk_size
+
+#     def __getitem__(self, idx):
+#         idx += self.start_idx
+
+#         with h5py.File(self.dataset_path, 'r', driver='mpio', comm=MPI.COMM_SELF) as f:
+#         # with h5py.File(self.dataset_path, 'r') as f:  # replace the above line with this line for serial h5py
+#             data = f[self.dataset_name][idx].astype(np.float32)
+#             data = np.moveaxis(data, -1, 0)
+
+#             out_dict = {}
+#             if self.class_cond:
+#                 raise NotImplementedError()
+#                 out_dict["y"] = f[self.dataset_name + '_y'][idx]
+
+#         return data, out_dict

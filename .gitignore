@@ -111,7 +111,7 @@ ehthumbs.db
 
 # No new files in datasets
 datasets/**
-
+geometry/**
 # No SLURM, checkpoints or log files
 *.sbatch
 checkpoints*/
