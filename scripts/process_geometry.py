@@ -25,11 +25,11 @@ class MetadataVoxelizer(STLToNumpyConverter):
         
         origin, spacing, dims = self._compute_grid(poly)
         self._guard_memory(dims, self.cfg.dtype)
-        vol = self._voxelize(poly)
+        vol = self._voxelize(poly, origin, spacing, dims)
 
         return vol, origin, spacing
     
-    def generate_sdf(binary_volume, spacing):
+    def generate_sdf(self, binary_volume, spacing):
         """
         Computes the signed distance function (SDF)
         from a binary volume.
@@ -63,7 +63,7 @@ def main():
 
     converter = MetadataVoxelizer(cfg)
     binary_vol, origin, spacing = converter.convert_with_metadata(args.input_stl)
-    sdf_vol = converter(binary_vol, spacing)
+    sdf_vol = converter.generate_sdf(binary_vol, spacing)
     np.savez_compressed(f"{args.output_prefix}_geometry.npz",
                         binary=binary_vol,
                         sdf=sdf_vol.astype(np.float32),
