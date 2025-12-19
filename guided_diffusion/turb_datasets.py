@@ -1,4 +1,6 @@
 from mpi4py import MPI
+import torch
+import torch.nn.functional as F
 import h5py
 from torch.utils.data import DataLoader, Dataset
 import numpy as np
@@ -94,6 +96,9 @@ class MultiGeometryDataset(Dataset):
         self.geo_cache = {}
         print(f"Loading {len(manifest)} geometries into memory...")
 
+        raw_grids = {}
+        max_d, max_h, max_w = 0, 0, 0
+
         for entry in manifest:
             geo_path = entry["geo_path"]
             if geo_path not in self.geo_cache:
@@ -102,10 +107,28 @@ class MultiGeometryDataset(Dataset):
                     # Grid [D, H, W]
                     grid = data["binary"].astype(np.float32)
                     grid = np.expand_dims(grid, axis=0)  # [1, D, H, W]
-                    self.geo_cache[geo_path] = grid
+                    raw_grids[geo_path] = grid
+
+                    _, d, h, w = grid.shape
+                    max_d = max(max_d, d)
+                    max_h = max(max_h, h)
+                    max_w = max(max_w, w)
+
                 except Exception as e:
                     print(f"FAILED to load geometry from {geo_path}: ({e})")
                     raise e
+        print(f"Max geometry grid size: D={max_d}, H={max_h}, W={max_w}, padding all grids to this size.")
+
+        for path, grid in raw_grids.items():
+            _, d, h, w = grid.shape
+            pad_d = max_d - d
+            pad_h = max_h - h
+            pad_w = max_w - w
+
+            pad_width = (0, pad_w, 0, pad_h, 0, pad_d) # Pading for last 3 dims
+            tensor_grid = torch.from_numpy(grid)
+            padded_grid = F.pad(tensor_grid, pad_width, mode='constant', value=0)
+            self.geo_cache[path] = padded_grid
                 
     def __len__(self):
         return self.chunk_size
