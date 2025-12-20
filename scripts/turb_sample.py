@@ -60,7 +60,7 @@ def main():
     logger.log("geometries loaded")
 
     # Code to define cond_fn for geometry guidance closure
-    def cond_fn(x, t, y=None):
+    def cond_fn(x, t, y=None, **kwargs):
         """
         Wrapper that freezes the geometry arguments fr the diffusion loop.
         """
@@ -70,7 +70,7 @@ def main():
             sdf_grid=sdf_dev,
             origin=origin_dev,
             spacing=spacing_dev,
-            guidance_scale=args.guidance_scale
+            guidance_scale=args.guidance_scale,
             )
 
     logger.log("sampling...")

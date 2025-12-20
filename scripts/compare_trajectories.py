@@ -264,10 +264,6 @@ if hasattr(args, "stl") and args.stl:
     stl_mesh: Optional[mesh.Mesh] = mesh.Mesh.from_file(str(args.stl))
 else:
     stl_mesh: Optional[mesh.Mesh] = None
-if hasattr(args, "stl") and args.stl:
-    stl_mesh = mesh.Mesh.from_file(str(args.stl))
-else:
-    stl_mesh = None
 
 fig = plt.figure(figsize=(20, 5))
 xy_pairs = [(-3, -2), (-3, -1), (-2, -1)]  # (Z,Y), (Z,X), (Y,X)
