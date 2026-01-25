@@ -17,7 +17,7 @@ from .nn import (
     normalization,
     timestep_embedding,
 )
-from .geo_encoder import GeometryEncoder
+from .geo_encoder import GeometryEncoder, VariationalGeometryEncoder
 
 class AttentionPool2d(nn.Module):
     """
@@ -446,7 +446,10 @@ class UNetModel(nn.Module):
         resblock_updown=False,
         use_new_attention_order=False,
         geometry_cond=True,
-        geometry_input_size=64
+        geometry_input_size=64,
+        geometry_encoder_type="variational",
+        geometry_sample=True,
+        geometry_kl_weight=1e-4,
     ):
         super().__init__()
 
@@ -470,6 +473,10 @@ class UNetModel(nn.Module):
         self.num_heads_upsample = num_heads_upsample
 
         self.geometry_cond = geometry_cond
+        self.geometry_encoder_type = geometry_encoder_type,
+        self.geometry_sample = geometry_sample,
+        self.geometry_kl_weight = geometry_kl_weight
+        self.geometry_kl = None
         time_embed_dim = model_channels * 4
         self.time_embed = nn.Sequential(
             linear(model_channels, time_embed_dim),
@@ -481,10 +488,16 @@ class UNetModel(nn.Module):
             self.label_emb = nn.Embedding(num_classes, time_embed_dim)
 
         if self.geometry_cond:
-            self.geo_encoder = GeometryEncoder(
-                output_dim=time_embed_dim,
-                input_channels=1,
-            )
+            if self.geometry_encoder_type == 'variational':
+                self.geo_encoder = VariationalGeometryEncoder(
+                    output_dim=time_embed_dim,
+                    input_channels=1
+                )
+            else:
+                self.geo_encoder = GeometryEncoder(
+                    output_dim=time_embed_dim,
+                    input_channels=1,
+                )
 
         ch = input_ch = int(channel_mult[0] * model_channels)
         self.input_blocks = nn.ModuleList(
@@ -663,8 +676,15 @@ class UNetModel(nn.Module):
 
         if self.geometry_cond and geometry_grid is not None:
             # Encode geometry grid and add to timestep embedding
-            geo_emb = self.geo_encoder(geometry_grid)
+            if self.geometry_encoder_type == "variational":
+                geo_emb, kl = self.geo_encoder(geometry_grid, sample=self.geometry_sample)
+                self.geometry_kl = kl
+            else:
+                geo_emb = self.geo_encoder(geometry_grid)
+                self.geometry_kl = None
             emb = emb + geo_emb
+        else:
+            self.geometry_kl = None
 
         h = x.type(self.dtype)
         for module in self.input_blocks:
