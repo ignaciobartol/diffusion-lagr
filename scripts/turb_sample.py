@@ -71,6 +71,7 @@ def main():
             origin=origin_dev,
             spacing=spacing_dev,
             guidance_scale=args.guidance_scale,
+            coord_space=args.coord_space,
             )
 
     logger.log("sampling...")
@@ -156,6 +157,7 @@ def create_argparser():
         log_dir="sample_logs",
         geometry_path="",
         guidance_scale=1.0,
+        coord_space="normalized",
     )
     defaults.update(model_and_diffusion_defaults())
     parser = argparse.ArgumentParser()

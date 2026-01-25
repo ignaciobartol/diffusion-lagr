@@ -11,6 +11,7 @@ def geometry_guidance_fn(
         origin: torch.Tensor,
         spacing: torch.Tensor,
         guidance_scale: float = 10.0,
+        coord_space: str = "world",
         debug: bool = False,
         debug_folder: str = "debug_plots"
         ) -> torch.Tensor:
@@ -20,14 +21,15 @@ def geometry_guidance_fn(
     during the diffusion process.
 
     Args:
-        x_t: [B, 3, N] tensor of particle positions at time t, with
-        physical units (meters).
+        x_t: [B, 3, N] tensor of particle positions at time t
         t: [B] tensor of time steps indices (req by API).
         sdf_grid: [1, 1, D, H, W] tensor representing the SDF grid
             (1 channel, 3D).
         origin: [3] (x,y,z) coordinates of the SDF grid origin.
         spacing: [3] (dx,dy,dz) voxel spacing of the SDF grid.
         guidance_scale: float, strength of the guidance.
+        coord_space: str, either "world" or "voxel". One of 
+            ["world", "voxel", "normalized"]
 
     Returns:
         gradient: [B, 3, N] guidance gradient to be added to the 
@@ -36,15 +38,23 @@ def geometry_guidance_fn(
 
     with torch.enable_grad():
         x_in = x_t.detach().requires_grad_(True)  # [B, 3, N]
-        
-        # Coordinates conversion: physical -> voxel grid
-        origin_dev = origin.to(x_in.device).view(1, 3, 1)
-        spacing_dev = spacing.to(x_in.device).view(1, 3, 1)
-        coords = (x_in - origin_dev) / spacing_dev
 
-        # Normalize coordinates to [-1, 1] for grid_sample
+        # Coordinates conversion: physical -> voxel grid
         dims = torch.tensor(sdf_grid.shape[2:], device=x_in.device).view(1, 3, 1)
-        norms_coords = 2.0 * (coords / dims) - 1.0
+        denom = (dims - 1).clamp_min(1.0)
+
+        if coord_space == "normalized":
+            norms_coords = x_in
+            coords = (norms_coords + 1.0) * 0.5 * denom
+        else:
+            if coord_space == "voxel":
+                coords = x_in
+            else:
+                origin_dev = origin.to(x_in.device).view(1, 3, 1)
+                spacing_dev = spacing.to(x_in.device).view(1, 3, 1)
+                coords = (x_in - origin_dev) / spacing_dev
+
+            norms_coords = 2.0 * (coords / denom) - 1.0
 
         # x_in shape is [B, 3, N]. We permute to [B, 1, 1, N, 3] to trick grid_sample.
         # Format: (Batch, Depth, Height, Width, Channels/XYZ)
@@ -129,8 +139,3 @@ def geometry_guidance_fn(
             return -grad * guidance_scale
         else:
             return torch.zeros_like(x_in)
-        
-        
-
-
-

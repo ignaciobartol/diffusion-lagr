@@ -14,6 +14,8 @@ def load_data(
     batch_size,
     class_cond=False,
     deterministic=False,
+    normalize_positions=True,
+    normalization_space="normalized",
     **kwargs #Catch all for legacy args
 ):
     """
@@ -61,7 +63,9 @@ def load_data(
         cumulative_lengths = cumulative_lengths,
         start_idx = start_idx,
         chunk_size = chunk_size,
-        class_cond = class_cond
+        class_cond = class_cond,
+        normalize_positions = normalize_positions,
+        normalization_space = normalization_space,
     )
     # dataset = TurbDataset(
     #     dataset_path, dataset_name, class_cond, start_idx, chunk_size,
@@ -84,7 +88,9 @@ class MultiGeometryDataset(Dataset):
         cumulative_lengths,
         start_idx,
         chunk_size,
-        class_cond=False
+        class_cond=False,
+        normalize_positions=True,
+        normalization_space="normalized",
     ):
         super().__init__()
         self.manifest = manifest
@@ -92,8 +98,11 @@ class MultiGeometryDataset(Dataset):
         self.class_cond = class_cond
         self.start_idx  = start_idx
         self.chunk_size = chunk_size
+        self.normalize_positions = normalize_positions
+        self.normalization_space = normalization_space
 
         self.geo_cache = {}
+        self.geo_meta = {}
         print(f"Loading {len(manifest)} geometries into memory...")
 
         raw_grids = {}
@@ -108,6 +117,11 @@ class MultiGeometryDataset(Dataset):
                     grid = data["binary"].astype(np.float32)
                     grid = np.expand_dims(grid, axis=0)  # [1, D, H, W]
                     raw_grids[geo_path] = grid
+                    self.geo_meta[geo_path] = {
+                        "origin": torch.from_numpy(data["origin"].astype(np.float32)),
+                        "spacing": torch.from_numpy(data["spacing"].astype(np.float32)),
+                        "dims": torch.from_numpy(np.array(grid.shape[1:]).astype(np.int32)),
+                    }
 
                     _, d, h, w = grid.shape
                     max_d = max(max_d, d)
@@ -129,6 +143,30 @@ class MultiGeometryDataset(Dataset):
             tensor_grid = torch.from_numpy(grid)
             padded_grid = F.pad(tensor_grid, pad_width, mode='constant', value=0)
             self.geo_cache[path] = padded_grid
+    
+    def _normalize_positions_data(self, data, geo_path):
+        if not self.normalize_positions:
+            return data
+
+        meta = self.geo_meta[geo_path]
+        origin = meta["origin"]
+        spacing = meta["spacing"]
+        dims = meta["dims"].float()
+        denom = (dims - 1).clamp_min(1.0)
+
+        if data.shape[0] < 3:
+            raise ValueError(
+                "Expected position channels in the first 3 channels after moveaxis"
+            )
+        pos = data[:3] 
+        view_shape = [3] + [1] * (pos.ndim - 1)
+        pos = (pos - origin.view(*view_shape)) / spacing.view(*view_shape)
+
+        if self.normalization_space == "normalized":
+            pos = 2.0 * (pos / denom.view(*view_shape)) - 1.0
+        
+        data[:3] = pos
+        return data
                 
     def __len__(self):
         return self.chunk_size
@@ -157,7 +195,11 @@ class MultiGeometryDataset(Dataset):
             if self.class_cond:
                 raise NotImplementedError()
                 # out_dict["y"] = f[d_name + '_y'][local_sample_idx]
+        data = self._normalize_positions_data(data, geo_path)
         out_dict["geometry_grid"] = self.geo_cache[geo_path]
+        out_dict["geometry_origin"] = self.geo_meta[geo_path]["origin"]
+        out_dict["geometry_spacing"] = self.geo_meta[geo_path]["spacing"]
+        out_dict["geometry_dims"] = self.geo_meta[geo_path]["dims"]
 
         return data, out_dict
 
