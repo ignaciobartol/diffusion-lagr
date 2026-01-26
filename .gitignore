@@ -122,3 +122,4 @@ debug_plots/
 # No reading dataset files
 Read_Dataset.py
 /scripts/add_noise_compare_tracks_cond.py
+run_train_guided.sh

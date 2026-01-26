@@ -16,6 +16,7 @@ def load_data(
     deterministic=False,
     normalize_positions=True,
     normalization_space="normalized",
+    cache_h5=True,
     **kwargs #Catch all for legacy args
 ):
     """
@@ -66,6 +67,7 @@ def load_data(
         class_cond = class_cond,
         normalize_positions = normalize_positions,
         normalization_space = normalization_space,
+        cache_h5 = cache_h5,
     )
     # dataset = TurbDataset(
     #     dataset_path, dataset_name, class_cond, start_idx, chunk_size,
@@ -91,6 +93,7 @@ class MultiGeometryDataset(Dataset):
         class_cond=False,
         normalize_positions=True,
         normalization_space="normalized",
+        cache_h5=True,
     ):
         super().__init__()
         self.manifest = manifest
@@ -100,9 +103,11 @@ class MultiGeometryDataset(Dataset):
         self.chunk_size = chunk_size
         self.normalize_positions = normalize_positions
         self.normalization_space = normalization_space
+        self.cache_h5 = cache_h5
 
         self.geo_cache = {}
         self.geo_meta = {}
+        self.h5_cache = {}
         print(f"Loading {len(manifest)} geometries into memory...")
 
         raw_grids = {}
@@ -187,10 +192,21 @@ class MultiGeometryDataset(Dataset):
         d_name = entry.get('dataset_name', 'train')
         geo_path = entry['geo_path']
 
-        with h5py.File(h5_path, 'r', driver='mpio', comm=MPI.COMM_SELF) as f:
+        if self.cache_h5:
+            f = self.h5_cache.get(h5_path)
+            if f is None:
+                f = h5py.File(h5_path, 'r', driver='mpio', comm=MPI.COMM_SELF)
+                self.h5_cache[h5_path] = f
             data = f[d_name][local_sample_idx].astype(np.float32)
             data = np.moveaxis(data, -1, 0)  # [C, D, H, W]
+            data = torch.from_numpy(data)
             out_dict = {}
+        else:
+            with h5py.File(h5_path, 'r', driver='mpio', comm=MPI.COMM_SELF) as f:
+                data = f[d_name][local_sample_idx].astype(np.float32)
+                data = np.moveaxis(data, -1, 0)  # [C, D, H, W]
+                data = torch.from_numpy(data)
+                out_dict = {}
 
             if self.class_cond:
                 raise NotImplementedError()
@@ -203,6 +219,12 @@ class MultiGeometryDataset(Dataset):
 
         return data, out_dict
 
+    def __del__(self):
+        for handle in self.h5_cache.values():
+            try:
+                handle.close()
+            except Exception:
+                pass
 
 # class TurbDataset(Dataset):
 #     def __init__(
