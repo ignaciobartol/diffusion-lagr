@@ -153,10 +153,15 @@ class MultiGeometryDataset(Dataset):
         if not self.normalize_positions:
             return data
 
+        if isinstance(data, np.ndarray):
+            data = torch.from_numpy(data)
+        elif not torch.is_tensor(data):
+            data = torch.tensor(data)
+
         meta = self.geo_meta[geo_path]
-        origin = meta["origin"]
-        spacing = meta["spacing"]
-        dims = meta["dims"].float()
+        origin = meta["origin"].to(dtype=data.dtype)
+        spacing = meta["spacing"].to(dtype=data.dtype)
+        dims = meta["dims"].to(dtype=data.dtype)
         denom = (dims - 1).clamp_min(1.0)
 
         if data.shape[0] < 3:
@@ -213,9 +218,6 @@ class MultiGeometryDataset(Dataset):
                 # out_dict["y"] = f[d_name + '_y'][local_sample_idx]
         data = self._normalize_positions_data(data, geo_path)
         out_dict["geometry_grid"] = self.geo_cache[geo_path]
-        out_dict["geometry_origin"] = self.geo_meta[geo_path]["origin"]
-        out_dict["geometry_spacing"] = self.geo_meta[geo_path]["spacing"]
-        out_dict["geometry_dims"] = self.geo_meta[geo_path]["dims"]
 
         return data, out_dict
 
