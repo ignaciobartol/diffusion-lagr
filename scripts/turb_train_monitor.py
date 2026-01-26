@@ -13,6 +13,8 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 import torch as th
+import torch.distributed as dist
+import blobfile as bf
 
 from guided_diffusion import dist_util, logger
 from guided_diffusion.geometry_util import geometry_guidance_fn
@@ -151,6 +153,31 @@ def _load_geometry_paths_from_manifest(manifest_path: str) -> List[str]:
         manifest = json.load(f)
     return [entry["geo_path"] for entry in manifest]
 
+def _resolve_init_model_save_path(log_dir: str, user_path: str) -> str:
+    if user_path:
+        return user_path
+    return os.path.join(log_dir, "model_init.pt")
+
+
+def _maybe_load_init_model(model, load_path: str) -> None:
+    if not load_path:
+        return
+    logger.log(f"loading initial model from: {load_path}")
+    state_dict = dist_util.load_state_dict(load_path, map_location=dist_util.dev())
+    model.load_state_dict(state_dict)
+    dist_util.sync_params(model.parameters())
+
+
+def _maybe_save_init_model(model, save_path: str) -> None:
+    if not save_path:
+        return
+    if dist.get_rank() == 0:
+        save_dir = os.path.dirname(save_path)
+        if save_dir:
+            os.makedirs(save_dir, exist_ok=True)
+        logger.log(f"saving initial model to: {save_path}")
+        with bf.BlobFile(save_path, "wb") as f:
+            th.save(model.state_dict(), f)
 
 def main() -> None:
     args = create_argparser().parse_args()
@@ -163,6 +190,10 @@ def main() -> None:
         **args_to_dict(args, model_and_diffusion_defaults().keys())
     )
     model.to(dist_util.dev())
+    _maybe_load_init_model(model, args.init_model_load_path)
+    if args.save_init_model:
+        save_path = _resolve_init_model_save_path(args.log_dir, args.init_model_save_path)
+        _maybe_save_init_model(model, save_path)
     schedule_sampler = create_named_schedule_sampler(args.schedule_sampler, diffusion)
 
     logger.log("creating data loader...")
@@ -315,6 +346,9 @@ def create_argparser():
         cache_h5=True,
         clip_denoised=True,
         encoder_manifest="",
+        save_init_model=False,
+        init_model_save_path="",
+        init_model_load_path="",
     )
     defaults.update(model_and_diffusion_defaults())
     parser = argparse.ArgumentParser()
