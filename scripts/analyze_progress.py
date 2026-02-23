@@ -111,7 +111,9 @@ def _plot_samples(
         ax.set_xlabel(f"dim {dim_x}")
         ax.set_ylabel(f"dim {dim_y}")
         ax.set_title("Sample Trajectories")
-        ax.axis("equal")
+        # ax.axis("equal")
+        ax.set_xlim(-1, 1)
+        ax.set_ylim(-1, 1)
     else:
         time = np.arange(samples.shape[1]) if samples.ndim >= 2 else np.arange(samples.shape[0])
         if samples.ndim >= 2:
@@ -183,7 +185,7 @@ def main() -> None:
         if not match:
             continue
         step = int(match.group(1))
-        if step % 5000 != 0:
+        if step % 1000 != 0:
             continue
         samples = np.load(sample_file)["arr_0"]
         stats = _summarize_samples(samples)

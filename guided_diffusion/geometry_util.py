@@ -11,7 +11,7 @@ def geometry_guidance_fn(
         origin: torch.Tensor,
         spacing: torch.Tensor,
         guidance_scale: float = 10.0,
-        coord_space: str = "world",
+        coord_space: str = "normalized",
         debug: bool = False,
         debug_folder: str = "debug_plots"
         ) -> torch.Tensor:
