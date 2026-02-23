@@ -55,45 +55,45 @@ def plot_geometry_orthogonal(file_path, output_path=None):
     # 1. Axial (Z-slice) -> Shows X vs Y
     # Slice: [z, :, :]
     ax = axes[0, 0]
-    im = plot_slice(ax, binary_vol[mid_z, :, :], f"Axial (z={mid_z})", is_sdf=False)
-    ax.set_ylabel("Y (Height)")
+    im = plot_slice(ax, binary_vol[mid_z, :, :].T, f"Axial (z={mid_z})", is_sdf=False)
+    ax.set_ylabel("Y (Depth)")
     ax.set_xlabel("X (Width)")
 
     # 2. Coronal (Y-slice) -> Shows X vs Z
     # Slice: [:, y, :] -> Z is row index (y-axis of plot), X is col index
     ax = axes[0, 1]
-    im = plot_slice(ax, binary_vol[:, mid_y, :], f"Coronal (y={mid_y})", is_sdf=False)
-    ax.set_ylabel("Z (Depth)")
+    im = plot_slice(ax, binary_vol[:, mid_y, :].T, f"Coronal (y={mid_y})", is_sdf=False)
+    ax.set_ylabel("Z (Height)")
     ax.set_xlabel("X (Width)")
 
     # 3. Sagittal (X-slice) -> Shows Y vs Z
     # Slice: [:, :, x] -> Z is row index, Y is col index
     ax = axes[0, 2]
-    im = plot_slice(ax, binary_vol[:, :, mid_x], f"Sagittal (x={mid_x})", is_sdf=False)
-    ax.set_ylabel("Z (Depth)")
-    ax.set_xlabel("Y (Height)")
+    im = plot_slice(ax, binary_vol[:, :, mid_x].T, f"Sagittal (x={mid_x})", is_sdf=False)
+    ax.set_ylabel("Z (Height)")
+    ax.set_xlabel("Y (Depth)")
 
     # --- ROW 2: SDF ---
 
     # 4. Axial SDF
     ax = axes[1, 0]
-    im_sdf = plot_slice(ax, sdf_vol[mid_z, :, :], f"Axial SDF", is_sdf=True)
-    ax.set_ylabel("Y (Height)")
+    im_sdf = plot_slice(ax, sdf_vol[mid_z, :, :].T, f"Axial SDF", is_sdf=True)
+    ax.set_ylabel("Y (Depth)")
     ax.set_xlabel("X (Width)")
     plt.colorbar(im_sdf, ax=ax, fraction=0.046, pad=0.04, label='Dist')
 
     # 5. Coronal SDF
     ax = axes[1, 1]
-    im_sdf = plot_slice(ax, sdf_vol[:, mid_y, :], f"Coronal SDF", is_sdf=True)
-    ax.set_ylabel("Z (Depth)")
+    im_sdf = plot_slice(ax, sdf_vol[:, mid_y, :].T, f"Coronal SDF", is_sdf=True)
+    ax.set_ylabel("Z (Height)")
     ax.set_xlabel("X (Width)")
     plt.colorbar(im_sdf, ax=ax, fraction=0.046, pad=0.04, label='Dist')
 
     # 6. Sagittal SDF
     ax = axes[1, 2]
-    im_sdf = plot_slice(ax, sdf_vol[:, :, mid_x], f"Sagittal SDF", is_sdf=True)
-    ax.set_ylabel("Z (Depth)")
-    ax.set_xlabel("Y (Height)")
+    im_sdf = plot_slice(ax, sdf_vol[:, :, mid_x].T, f"Sagittal SDF", is_sdf=True)
+    ax.set_ylabel("Z (Height)")
+    ax.set_xlabel("Y (Depth)")
     plt.colorbar(im_sdf, ax=ax, fraction=0.046, pad=0.04, label='Dist')
 
     # Formatting
