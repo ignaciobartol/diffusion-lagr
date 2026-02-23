@@ -8,6 +8,38 @@ Example
         --gt-npy   datasets/bb-part-0.42.npy \
         --pred-npz results/samples_128x1024x3.npz \
         --out      figs/compare.png
+
+    python scripts/compare_trajectories.py \
+        --gt-npy /storage/project/r-sdewji3-0/ibartol3/FastDep-CFPD/dataset/bb-part-0.42.npy \
+        --pred-npz /storage/home/hcoda1/7/ibartol3/r-sdewji3-0/diffusion-lagr/results/10/bb-samples_256x1024x3.npz \
+        --out /storage/home/hcoda1/7/ibartol3/r-sdewji3-0/diffusion-lagr/results/10/ \
+        --n-sample 256 --n-train 256 \
+        --geometry-npz /storage/home/hcoda1/7/ibartol3/r-sdewji3-0/diffusion-lagr/geometry/processed/bb-geometry.npz \
+        --stl /storage/project/r-sdewji3-0/ibartol3/3DModels/Male/big-big/volume_wt.stl 
+
+    python scripts/compare_trajectories.py \
+        --gt-npy /storage/project/r-sdewji3-0/ibartol3/FastDep-CFPD/dataset/bm-part-0.42.npy \
+        --pred-npz /storage/home/hcoda1/7/ibartol3/r-sdewji3-0/diffusion-lagr/results/10/bm-samples_256x1024x3.npz \
+        --out /storage/home/hcoda1/7/ibartol3/r-sdewji3-0/diffusion-lagr/results/10/ \
+        --n-sample 256 --n-train 256 \
+        --geometry-npz /storage/home/hcoda1/7/ibartol3/r-sdewji3-0/diffusion-lagr/geometry/processed/bm_geometry.npz \
+        --stl /storage/project/r-sdewji3-0/ibartol3/3DModels/Male/big-mean/volume_wt.stl 
+
+    python scripts/compare_trajectories.py \
+        --gt-npy /storage/project/r-sdewji3-0/ibartol3/FastDep-CFPD/dataset/bs-part-0.42.npy \
+        --pred-npz /storage/home/hcoda1/7/ibartol3/r-sdewji3-0/diffusion-lagr/results/10/bs-samples_256x1024x3.npz \
+        --out /storage/home/hcoda1/7/ibartol3/r-sdewji3-0/diffusion-lagr/results/10/bs-10 \
+        --n-sample 256 --n-train 256 \
+        --geometry-npz /storage/home/hcoda1/7/ibartol3/r-sdewji3-0/diffusion-lagr/geometry/processed/bb-geometry.npz \
+        --stl /storage/project/r-sdewji3-0/ibartol3/3DModels/Male/big-small/volume_wt.stl 
+
+    python scripts/compare_trajectories.py \
+        --gt-npy /storage/project/r-sdewji3-0/ibartol3/FastDep-CFPD/dataset/sm-part-0.42.npy \
+        --pred-npz /storage/home/hcoda1/7/ibartol3/r-sdewji3-0/diffusion-lagr/results/10/sm2-samples_256x1024x3.npz \
+        --out /storage/home/hcoda1/7/ibartol3/r-sdewji3-0/diffusion-lagr/results/10/sm2-10 \
+        --n-sample 256 --n-train 256 \
+        --geometry-npz /storage/home/hcoda1/7/ibartol3/r-sdewji3-0/diffusion-lagr/geometry/processed/sm_geometry.npz \
+        --stl /storage/project/r-sdewji3-0/ibartol3/3DModels/Male/small-mean/volume_wt.stl 
 """
 from __future__ import annotations
 try:
@@ -23,12 +55,17 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.lines import Line2D
-
+import sys
+import os
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+sys.path.append(parent_dir)
 from fastdep.plotting import plot_xy_tracks, plot_3d_tracks
 from stl import mesh
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from matplotlib.collections import LineCollection
 from skimage import measure, draw
+import h5py
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -40,10 +77,43 @@ parser.add_argument("--out", type=Path, help="Save figure instead of showing")
 parser.add_argument("--n-train", type=int, default=512)
 parser.add_argument("--n-sample", type=int, default=128)
 parser.add_argument("--stl", type=Path, help="Optional STL mesh for 3D projection")
+parser.add_argument("--min-key", type=str, default="min", help="Dataset key for min.")
+parser.add_argument("--max-key", type=str, default="max", help="Dataset key for max.")
+parser.add_argument(
+    "--geometry-npz",
+    type=Path,
+    help="Geometry .npz file used for training (origin/spacing/binary grid).",
+)
+parser.add_argument(
+    "--normalization-space",
+    default="normalized",
+    choices=("normalized", "voxel", "world"),
+    help="Coordinate space used during training for particle positions.",
+)
 args = parser.parse_args()
 
 gt = np.moveaxis(np.load(args.gt_npy), 1, 0)       # (P,T,3)
 pred = np.load(args.pred_npz)["arr_0"]             # (P,T,3)
+
+if args.geometry_npz is not None:
+    geo = np.load(args.geometry_npz)
+    origin = np.asarray(geo["origin"], dtype=np.float32)
+    spacing = np.asarray(geo["spacing"], dtype=np.float32)
+    dims = np.asarray(geo["binary"].shape, dtype=np.float32)
+    denom = np.maximum(dims - 1.0, 1.0)
+    if args.normalization_space == "normalized":
+        coords = (pred + 1.0) * 0.5 * denom
+    elif args.normalization_space == "voxel":
+        coords = pred
+    else:
+        coords = (pred - origin) / spacing
+    pred = coords * spacing + origin
+    log.info(
+        "Rescaled predictions using geometry %s (%s space).",
+        args.geometry_npz,
+        args.normalization_space,
+    )
+
 
 def plot_stl_projection(ax, stl_mesh, xy=(0,1), alpha=0.2, color="gray", stride=1):
     """
@@ -269,12 +339,17 @@ fig = plt.figure(figsize=(20, 5))
 xy_pairs = [(-3, -2), (-3, -1), (-2, -1)]  # (Z,Y), (Z,X), (Y,X)
 labels = [("X", "Y"), ("X", "Z"), ("Y", "Z")]
 
+plot_gt = gt[: args.n_train]
+plot_pred = pred[: args.n_sample]
+# mins, maxs = _get_bounds(plot_gt, plot_pred)
+# mins, maxs = _expand_bounds(mins, maxs)
+
 for i, (xy, (xlabel, ylabel)) in enumerate(zip(xy_pairs, labels), start=1):
     ax = fig.add_subplot(1, 4, i)
-    plot_xy_tracks(gt[: args.n_train], range(args.n_train), xy=xy, ax=ax,
+    plot_xy_tracks(plot_gt, range(args.n_train), xy=xy, ax=ax,
                    alpha=0.2, color="red", label="Ground Truth", 
                    linestyle="--")
-    plot_xy_tracks(pred[: args.n_sample], range(args.n_sample), xy=xy, ax=ax,
+    plot_xy_tracks(plot_pred, range(args.n_sample), xy=xy, ax=ax,
                    alpha=0.4, color="blue", label="Diffusion",
                    linestyle="-")
     if stl_mesh is not None:
@@ -283,6 +358,7 @@ for i, (xy, (xlabel, ylabel)) in enumerate(zip(xy_pairs, labels), start=1):
             stride=None, method_level=0.5, color="black", linewidth=0.8,
             alpha=0.8, show_mask=False
         )
+    # _apply_2d_limits(ax, mins, maxs, xy)
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     ax.set_title(f"{xlabel}-{ylabel}")
@@ -293,15 +369,16 @@ for i, (xy, (xlabel, ylabel)) in enumerate(zip(xy_pairs, labels), start=1):
     ax.legend(handles=handles, loc="upper right")
 
 ax3d = fig.add_subplot(1, 4, 4, projection="3d")
-plot_3d_tracks(gt[: args.n_train], range(args.n_train), ax=ax3d,
+plot_3d_tracks(plot_gt, range(args.n_train), ax=ax3d,
                alpha=0.2, color="red", label="Ground Truth",
                linestyle="--")
-plot_3d_tracks(pred[: args.n_sample], range(args.n_sample), ax=ax3d,
+plot_3d_tracks(plot_pred, range(args.n_sample), ax=ax3d,
                alpha=0.4, color="blue", label="Diffusion",
                linestyle="-")
 if stl_mesh is not None:
     plot_stl_3d(ax3d, stl_mesh, alpha=0.2, color="gray")
 ax3d.set_title("3D")
+# _apply_3d_limits(ax3d, mins, maxs)
 
 fig.tight_layout()
 if args.out:
