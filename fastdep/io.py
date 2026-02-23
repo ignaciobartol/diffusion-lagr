@@ -65,7 +65,7 @@ def load_track_file(csv_path: Path) -> pd.DataFrame:
         log.info("Reading cached parquet %s", parquet_path)
         return pd.read_parquet(parquet_path, engine="fastparquet")
 
-    log.info("Reading CSV %s (first time – will cache parquet)", csv_path)
+    log.info("Reading CSV %s (first time - will cache parquet)", csv_path)
     df = pd.read_csv(csv_path)
     df.to_parquet(parquet_path, compression=None)
     return df
