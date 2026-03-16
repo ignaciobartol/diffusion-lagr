@@ -29,6 +29,7 @@ def plot_xy_tracks(
             label=label if idx == particle_idx[0] else None,
             alpha=alpha,
             color=color,
+            linewidth=0.8,
             linestyle=linestyle
         )
     ax.axis("equal")

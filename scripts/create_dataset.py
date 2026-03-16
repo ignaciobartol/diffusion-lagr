@@ -8,10 +8,9 @@ create_dataset.py - build a trimmed HDF5 (min / max / train) from
 Example
 -------
     python scripts/create_dataset.py \
-        --csv   data/bb-part-0.42mum.csv \
-        --npy   data/bb-part-0.42.npy   \
-        --out   datasets/bb-part-0.42.h5 \
-        --train-particles 512 \
+        --csv   ../Simulations-INL/starccm-mesh/sm-sim-part/sm-part-0.42mum.csv \
+        --out   datasets/sm-part-16384.h5 \
+        --train-particles 16384 \
         --train-timesteps 1024
 """
 from __future__ import annotations

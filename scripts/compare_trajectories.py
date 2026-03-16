@@ -22,12 +22,12 @@ python scripts/compare_trajectories.py \
 
 # new CLI
 python scripts/compare_trajectories.py \
-  --gt datasets/bb-part-16384.h5 --gt-key train \
-  --pred results/12/bb_samples_guided.npz --pred-key arr_0 \
-  --geometry-npz geometry/processed/bb_geometry.npz \
-  --normalization-space world \
-  --stl geometry/raw/bb-geom.stl \
-  --out results/12/
+  --gt datasets/bs-part-16384.h5 --gt-key train \
+  --pred results/10/bs-samples_256x1024x3.npz --pred-key arr_0 \
+  --geometry-npz geometry/processed/bs_geometry.npz \
+  --normalization-space normalized \
+  --stl geometry/raw/bs-geom.stl \
+  --out results/12/bs.png
 """
 
 from __future__ import annotations
@@ -403,7 +403,9 @@ def main(argv: Optional[list[str]] = None) -> int:
         tris = load_stl_triangles(args.stl)
 
     # Slice for plotting
-    plot_gt = gt[: int(args.n_train)]
+    rng = np.random.default_rng()
+    gt_idx = rng.choice(gt.shape[0], size=args.n_train, replace=False)
+    plot_gt = gt[gt_idx]
     plot_pred = pred[: int(args.n_sample)]
 
     fig = plt.figure(figsize=(20, 5))
@@ -434,7 +436,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             range(min(plot_gt.shape[0], int(args.n_train))),
             xy=xy,
             ax=ax,
-            alpha=0.4,
+            alpha=0.2,
             color="C2",
             label="Ground Truth",
             linestyle="-",
@@ -444,7 +446,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             range(min(plot_pred.shape[0], int(args.n_sample))),
             xy=xy,
             ax=ax,
-            alpha=0.4,
+            alpha=0.2,
             color="C0",
             label="Diffusion",
             linestyle="-",
@@ -469,7 +471,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         plot_gt,
         range(min(plot_gt.shape[0], int(args.n_train))),
         ax=ax3d,
-        alpha=0.4,
+        alpha=0.2,
         color="C2",
         label="Ground Truth",
         linestyle="-",
@@ -478,7 +480,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         plot_pred,
         range(min(plot_pred.shape[0], int(args.n_sample))),
         ax=ax3d,
-        alpha=0.4,
+        alpha=0.2,
         color="C0",
         label="Guided-DDPM",
         linestyle="-",

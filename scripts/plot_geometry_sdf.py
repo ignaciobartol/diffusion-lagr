@@ -56,8 +56,8 @@ def plot_geometry_orthogonal(file_path, output_path=None):
     # Slice: [z, :, :]
     ax = axes[0, 0]
     im = plot_slice(ax, binary_vol[mid_z, :, :].T, f"Axial (z={mid_z})", is_sdf=False)
-    ax.set_ylabel("Y (Depth)")
-    ax.set_xlabel("X (Width)")
+    ax.set_ylabel("Z (Height)")
+    ax.set_xlabel("Y (Depth)")
 
     # 2. Coronal (Y-slice) -> Shows X vs Z
     # Slice: [:, y, :] -> Z is row index (y-axis of plot), X is col index
@@ -70,16 +70,16 @@ def plot_geometry_orthogonal(file_path, output_path=None):
     # Slice: [:, :, x] -> Z is row index, Y is col index
     ax = axes[0, 2]
     im = plot_slice(ax, binary_vol[:, :, mid_x].T, f"Sagittal (x={mid_x})", is_sdf=False)
-    ax.set_ylabel("Z (Height)")
-    ax.set_xlabel("Y (Depth)")
+    ax.set_ylabel("Y (Depth)")
+    ax.set_xlabel("X (Width)")
 
     # --- ROW 2: SDF ---
 
     # 4. Axial SDF
     ax = axes[1, 0]
     im_sdf = plot_slice(ax, sdf_vol[mid_z, :, :].T, f"Axial SDF", is_sdf=True)
-    ax.set_ylabel("Y (Depth)")
-    ax.set_xlabel("X (Width)")
+    ax.set_ylabel("Z (Height)")
+    ax.set_xlabel("Y (Depth)")
     plt.colorbar(im_sdf, ax=ax, fraction=0.046, pad=0.04, label='Dist')
 
     # 5. Coronal SDF
@@ -92,17 +92,20 @@ def plot_geometry_orthogonal(file_path, output_path=None):
     # 6. Sagittal SDF
     ax = axes[1, 2]
     im_sdf = plot_slice(ax, sdf_vol[:, :, mid_x].T, f"Sagittal SDF", is_sdf=True)
-    ax.set_ylabel("Z (Height)")
-    ax.set_xlabel("Y (Depth)")
+    ax.set_ylabel("Y (Depth)")
+    ax.set_xlabel("X (Width)")
     plt.colorbar(im_sdf, ax=ax, fraction=0.046, pad=0.04, label='Dist')
 
     # Formatting
-    plt.suptitle(f"Geometry Orthogonal Views: {os.path.basename(file_path)}", fontsize=16)
+    # plt.suptitle(f"Geometry Orthogonal Views: {os.path.basename(file_path)}", fontsize=16)
+    plt.suptitle(f"Geometry Orthogonal Views", fontsize=16)
     plt.tight_layout()
 
     # 4. Save or Show
     if output_path:
         plt.savefig(output_path, dpi=300)
+        # Save in PDF
+        plt.savefig(output_path.replace(".png", ".pdf"))
         print(f"Comparison plot saved to {output_path}")
     else:
         plt.show()
