@@ -882,6 +882,10 @@ class GaussianDiffusion:
                 terms["loss"] = terms["mse"] + terms["vb"]
             else:
                 terms["loss"] = terms["mse"]
+            if getattr(model, "geometry_kl", None) is not None:
+                kl_weight = getattr(model, "geometry_kl_weight", 1.0)
+                terms["geometry_kl"] = model.geometry_kl
+                terms["loss"] = terms["loss"] + kl_weight * model.geometry_kl
         else:
             raise NotImplementedError(self.loss_type)
 

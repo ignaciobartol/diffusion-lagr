@@ -111,12 +111,21 @@ ehthumbs.db
 
 # No new files in datasets
 datasets/**
-
+geometry/**
 # No SLURM, checkpoints or log files
 *.sbatch
 checkpoints*/
 logs/
 results*/
+debug_plots/
 
 # No reading dataset files
 Read_Dataset.py
+/scripts/add_noise_compare_tracks_cond.py
+run_train_guided.sh
+quick_look.py
+
+# No reading of the data analysis files
+data_analysis/**
+cfpd_analysis/**
+analysis/**
